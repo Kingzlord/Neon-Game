@@ -20,7 +20,7 @@ interface MainMenuProps {
   unlockedWeaponIds: number[];
   onStartLevel: (levelId: number) => void;
   onOpenMultiplayerModal: () => void;
-  onUnlockAllSandbox: () => void;
+
   isMuted: boolean;
   onToggleMute: () => void;
 }
@@ -30,7 +30,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
   unlockedWeaponIds,
   onStartLevel,
   onOpenMultiplayerModal,
-  onUnlockAllSandbox,
+
   isMuted,
   onToggleMute
 }) => {
@@ -69,14 +69,7 @@ export const MainMenu: React.FC<MainMenuProps> = ({
         </div>
 
         <div className="flex items-center gap-2.5">
-          <button
-            onClick={onUnlockAllSandbox}
-            className="px-3 py-1.5 chamfer-box bg-slate-900 hover:bg-slate-800 border border-amber-500/50 text-amber-300 text-xs font-mono-code flex items-center gap-1.5 cursor-pointer transition-colors"
-            title="Unlock all 10 levels and 10 weapons immediately for evaluation"
-          >
-            <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            Unlock All 10 Levels (Sandbox)
-          </button>
+        
 
           <button
             onClick={onToggleMute}

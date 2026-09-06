@@ -99,63 +99,120 @@ class CrazyGamesService {
    * Requests a Midgame or Rewarded Ad from CrazyGames SDK v3.
    * Always resolves cleanly so gameplay never hangs or blocks, even if adblock is active or running on localhost.
    */
-  public requestAd(
-    type: AdType,
-    onComplete: (rewardGranted: boolean) => void
-  ): void {
-    this.gameplayStop();
+public requestAd(
+  type: AdType,
+  onComplete: (rewardGranted: boolean) => void
+): void {
+  this.gameplayStop();
 
-    let settled = false;
-    const finish = (rewarded: boolean) => {
-      if (settled) return;
-      settled = true;
-      if (this.simulationListener) {
-        this.simulationListener(null);
-      }
-      this.gameplayStart();
-      onComplete(rewarded);
-    };
+  let settled = false;
 
-    // Safety timeout so the game never locks up if an ad network request hangs
-    const safetyTimer = setTimeout(() => {
-      if (!settled) {
-        console.warn(`[CrazyGames SDK v3] Ad request (${type}) timed out. Proceeding gracefully.`);
-        finish(true);
-      }
-    }, 5500);
+  const finish = (rewarded: boolean) => {
+    if (settled) return;
+    settled = true;
 
-    try {
-      const sdk = window.CrazyGames?.SDK;
-      const env = sdk?.environment || 'local';
+    if (this.simulationListener) {
+      this.simulationListener(null);
+    }
 
-      // If SDK is available and not disabled, call requestAd
-      if (sdk && sdk.ad && env !== 'disabled') {
-        sdk.ad.requestAd(type, {
-          adStarted: () => {
-            console.log(`[CrazyGames SDK v3] ${type.toUpperCase()} Ad started.`);
-          },
-          adFinished: () => {
-            clearTimeout(safetyTimer);
-            console.log(`[CrazyGames SDK v3] ${type.toUpperCase()} Ad finished.`);
+    this.gameplayStart();
+    onComplete(rewarded);
+  };
+
+  const safetyTimer = setTimeout(() => {
+    if (!settled) {
+      console.warn(
+        `[CrazyGames SDK v3] ${type.toUpperCase()} Ad timed out.`
+      );
+
+      // A timed-out rewarded ad must NOT grant the reward.
+      // Midgame ads can safely continue the game.
+      finish(type === 'midgame');
+    }
+  }, 5500);
+
+  try {
+    const sdk = window.CrazyGames?.SDK;
+    const env = sdk?.environment || 'local';
+
+    // Real CrazyGames environment
+    if (sdk && sdk.ad && env !== 'disabled') {
+      sdk.ad.requestAd(type, {
+        adStarted: () => {
+          console.log(
+            `[CrazyGames SDK v3] ${type.toUpperCase()} Ad started.`
+          );
+        },
+
+        adFinished: () => {
+          clearTimeout(safetyTimer);
+
+          console.log(
+            `[CrazyGames SDK v3] ${type.toUpperCase()} Ad finished.`
+          );
+
+          // Only a successfully finished rewarded ad grants the reward.
+          finish(true);
+        },
+
+        adError: (err: unknown) => {
+          clearTimeout(safetyTimer);
+
+          console.info(
+            `[CrazyGames SDK v3] ${type.toUpperCase()} Ad error/unfilled in environment (${env}).`,
+            err
+          );
+
+          if (type === 'rewarded') {
+            // IMPORTANT:
+            // Failed/unfilled rewarded ads do NOT grant a revive.
+            finish(false);
+          } else {
+            // Midgame ads are optional. Continue normally if unavailable.
             finish(true);
-          },
-          adError: (err: unknown) => {
-            clearTimeout(safetyTimer);
-            console.info(`[CrazyGames SDK v3] ${type.toUpperCase()} Ad error/unfilled in environment (${env}). Using graceful fallback:`, err);
-            // Run brief local SDK visual fallback so user sees the ad lifecycle clearly
-            this.runLocalFallbackSimulation(type, () => finish(true));
           }
-        });
-      } else {
-        clearTimeout(safetyTimer);
-        this.runLocalFallbackSimulation(type, () => finish(true));
-      }
-    } catch (err) {
-      clearTimeout(safetyTimer);
-      console.info('[CrazyGames SDK v3] Exception calling requestAd, using fallback:', err);
-      this.runLocalFallbackSimulation(type, () => finish(true));
+        }
+      });
+
+      return;
+    }
+
+    // Local / standalone browser environment:
+    // Run the visual simulation so we can test ads locally.
+    clearTimeout(safetyTimer);
+
+    if (!sdk || env === 'local') {
+      this.runLocalFallbackSimulation(type, () => {
+        // Local simulation is intentionally considered successful
+        // so we can test the complete revive flow.
+        finish(true);
+      });
+      return;
+    }
+
+    // SDK is explicitly disabled.
+    // Never grant a rewarded ad reward in this situation.
+    finish(type === 'midgame');
+  } catch (err) {
+    clearTimeout(safetyTimer);
+
+    console.info(
+      `[CrazyGames SDK v3] Exception calling requestAd in ${type} mode.`,
+      err
+    );
+
+    // Local testing can use the simulation.
+    if (!window.CrazyGames?.SDK) {
+      this.runLocalFallbackSimulation(type, () => {
+        finish(true);
+      });
+    } else {
+      // In the real environment, an exception must never grant
+      // a rewarded reward.
+      finish(type === 'midgame');
     }
   }
+}
 
   private runLocalFallbackSimulation(type: AdType, onDone: () => void) {
     const durationMs = type === 'rewarded' ? 1800 : 1200;

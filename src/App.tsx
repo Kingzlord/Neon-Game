@@ -180,11 +180,6 @@ export function App() {
     setIsMuted(muted);
   };
 
-  const handleUnlockAllSandbox = () => {
-    setUnlockedLevelIds([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-    setUnlockedWeaponIds([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
-  };
-
   const handleReviveSuccess = () => {
     setIsDeadModalOpen(false);
     if (engineRef.current) {
@@ -215,7 +210,7 @@ export function App() {
           unlockedWeaponIds={unlockedWeaponIds}
           onStartLevel={startLevel}
           onOpenMultiplayerModal={() => setIsMultiplayerModalOpen(true)}
-          onUnlockAllSandbox={handleUnlockAllSandbox}
+          // onUnlockAllSandbox={handleUnlockAllSandbox}
           isMuted={isMuted}
           onToggleMute={handleToggleMute}
         />
